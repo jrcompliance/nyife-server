@@ -50,7 +50,8 @@ class Database {
             // Sync database (use with caution in production)
 
             if (config.env === 'development') {
-                await this.sequelize.sync({ alter: true });
+                // await this.sequelize.sync({ alter: true });
+                await this.sequelize.sync();
                 logger.info('Database synchronized');
             }
 

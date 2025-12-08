@@ -92,7 +92,7 @@ class Invoice extends Model {
                     type: DataTypes.DECIMAL(10, 2),
                     defaultValue: 0,
                 },
-                gst: {
+                GST: {
                     type: DataTypes.DECIMAL(10, 2),
                     defaultValue: 0,
                 },
@@ -102,16 +102,16 @@ class Invoice extends Model {
                 },
                 quotation_number: {
                     type: DataTypes.STRING(50),
-                    allowNull: true,
+                    allowNull: false,
                     unique: true,
                 },
                 quotation_date: {
                     type: DataTypes.DATEONLY,
-                    allowNull: true,
+                    allowNull: false,
                 },
                 quotation_valid_until_date: {
                     type: DataTypes.DATEONLY,
-                    allowNull: true,
+                    allowNull: false,
                 },
                 quotation_invoice_pdf_url: {
                     type: DataTypes.STRING(500),
@@ -186,19 +186,6 @@ class Invoice extends Model {
                 ],
             }
         );
-
-        Invoice.addHook("beforeCreate", async (invoice) => {
-            invoice.quotation_number = `QI${Date.now()}${Math.floor(Math.random() * 1000)}`;
-            invoice.proforma_number = `PI${Date.now()}${Math.floor(Math.random() * 1000)}`;
-            // invoice.sub_total = 
-            // invoice.discount_amount=
-            // invoice.amount_after_discount=
-            // invoice.gst=
-            // invoice.total=
-            // invoice.quotation_date=
-            // invoice.quotation_valid_until_date=
-        });
-
         return Invoice;
     }
 }
