@@ -10,7 +10,6 @@ class InvoiceService {
 
     async createInvoice(invoiceData) {
         const Invoice = this.getInvoice();
-        console.log("invoiceData", invoiceData);
         const invoice = await Invoice.create(invoiceData);
         return invoice;
     }
