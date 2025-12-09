@@ -30,7 +30,13 @@ const config = {
     },
     log: {
         level: process.env.LOG_LEVEL || 'info',
-    }
+    },
+    upload: {
+        dir: process.env.UPLOAD_DIR || 'uploads',
+        maxFileSize: parseInt(process.env.MAX_FILE_SIZE, 10) || 10 * 1024 * 1024, // 10MB
+    },
+    baseUrl: process.env.BASE_URL || 'http://localhost:3000',
+
 };
 
 module.exports = config;

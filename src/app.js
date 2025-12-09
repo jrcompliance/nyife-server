@@ -1,7 +1,7 @@
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
-const compression = require('compression');
+// const compression = require('compression');
 const config = require('./config/env');
 const routes = require('./routes');
 const { errorConverter, errorHandler } = require('./middleware/error.middleware');
@@ -20,7 +20,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Compression
-app.use(compression());
+// app.use(compression());
 
 // Logging
 if (config.env !== 'test') {

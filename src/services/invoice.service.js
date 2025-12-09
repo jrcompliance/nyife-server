@@ -81,6 +81,29 @@ class InvoiceService {
         return invoice;
     }
 
+    async generateProformaInvoice(invoiceId) {
+        const Invoice = this.getInvoice();
+        const invoice = await Invoice.findByPk(invoiceId);
+
+        if (!invoice) {
+            throw ApiError.notFound('Invoice not found');
+        }
+
+        // TODO: Implement Proforma Invoice Generation
+
+        invoice.proforma_invoice = true;
+        invoice.proforma_number = `PI${Date.now()}${Math.floor(Math.random() * 1000)}`;
+        invoice.proforma_date = new Date().toISOString().split('T')[0];
+        invoice.proforma_valid_until_date = new Date(new Date().setDate(new Date().getDate() + 30)).toISOString().split('T')[0];
+        invoice.payment_url = `https://rzp.io/l/invPF${invoice.proforma_number}`; // TODO: Replace with actual payment url
+
+        await invoice.save();
+
+        await cache.del(`invoice:${invoiceId}`);
+
+        return invoice;
+    }
+
     async getInvoiceById(invoiceId) {
         const Invoice = this.getInvoice();
         const cacheKey = `invoice:${invoiceId}`;
@@ -137,6 +160,8 @@ class InvoiceService {
                 { contact_person: { [Op.like]: `%${search}%` } },
                 { email: { [Op.like]: `%${search}%` } },
                 { quotation_number: { [Op.like]: `%${search}%` } },
+                { proforma_number: { [Op.like]: `%${search}%` } },
+                { payment_receipt_number: { [Op.like]: `%${search}%` } },
 
             ];
         }

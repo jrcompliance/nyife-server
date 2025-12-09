@@ -96,6 +96,10 @@ class Invoice extends Model {
                     type: DataTypes.DECIMAL(10, 2),
                     defaultValue: 0,
                 },
+                GST_amount: {
+                    type: DataTypes.DECIMAL(10, 2),
+                    defaultValue: 0,
+                },
                 total: {
                     type: DataTypes.DECIMAL(10, 2),
                     defaultValue: 0,
