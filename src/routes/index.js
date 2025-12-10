@@ -1,6 +1,7 @@
 const express = require('express');
 const invoiceRoutes = require('./invoice.routes');
 const uploadRoutes = require('./upload.routes');
+const emailRoutes = require('./email.routes');
 
 const router = express.Router();
 
@@ -12,6 +13,10 @@ const defaultRoutes = [
     {
         path: '/uploads',
         route: uploadRoutes,
+    },
+    {
+        path: '/email',
+        route: emailRoutes,
     }
 ];
 

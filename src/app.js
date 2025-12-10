@@ -1,7 +1,7 @@
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
-// const compression = require('compression');
+const compression = require('compression');
 const config = require('./config/env');
 const routes = require('./routes');
 const { errorConverter, errorHandler } = require('./middleware/error.middleware');
@@ -20,7 +20,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Compression
-// app.use(compression());
+app.use(compression());
 
 // Logging
 if (config.env !== 'test') {
@@ -35,7 +35,7 @@ app.use(defaultRateLimiter);
 app.set('trust proxy', 1);
 
 // API routes
-app.use('/api/v1', routes);
+app.use(config.apiVersion, routes);
 
 // 404 handler
 app.use((req, res, next) => {
@@ -47,3 +47,4 @@ app.use(errorConverter);
 app.use(errorHandler);
 
 module.exports = app;
+

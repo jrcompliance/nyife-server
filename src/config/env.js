@@ -35,7 +35,17 @@ const config = {
         dir: process.env.UPLOAD_DIR || 'uploads',
         maxFileSize: parseInt(process.env.MAX_FILE_SIZE, 10) || 10 * 1024 * 1024, // 10MB
     },
+    smtp: {
+        host: process.env.MAIL_HOST,
+        port: parseInt(process.env.MAIL_PORT, 10) || 465,
+        secure: parseInt(process.env.MAIL_PORT, 10) === 465,
+        user: process.env.MAIL_USERNAME,
+        pass: process.env.MAIL_PASSWORD,
+        fromName: process.env.MAIL_FROM_NAME,
+        from: process.env.MAIL_FROM_ADDRESS,
+    },
     baseUrl: process.env.BASE_URL || 'http://localhost:3000',
+    apiVersion: process.env.API_VERSION || '/api/v1',
 
 };
 

@@ -56,7 +56,6 @@ process.on('unhandledRejection', (err) => {
     }
 });
 
-// I have create a nodejs backend server for invoice management system. this server is built using node.js, express.js, sequelize, and mysql. need to build an api which accept invoice pdf blowdata and save it in system in the form of pdf and also create url to access it and save url in db along with invoice data 
 // Handle uncaught exceptions
 process.on('uncaughtException', (err) => {
     logger.error('Uncaught Exception:', err);
