@@ -94,8 +94,11 @@ class InvoiceService {
         invoice.proforma_invoice = true;
         invoice.proforma_number = `PI${Date.now()}${Math.floor(Math.random() * 1000)}`;
         invoice.proforma_date = new Date().toISOString().split('T')[0];
-        invoice.proforma_valid_until_date = new Date(new Date().setDate(new Date().getDate() + 30)).toISOString().split('T')[0];
-        invoice.payment_url = `https://rzp.io/l/invPF${invoice.proforma_number}`; // TODO: Replace with actual payment url
+        invoice.proforma_valid_until_date = new Date(new Date().setDate(new Date().getDate() + 7)).toISOString().split('T')[0];
+        // TODO: Replace with actual payment url
+        const razorpay_link = `https://app.razorpay.com`;
+        // invoice.payment_url = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${razorpay_link}`;
+        invoice.payment_url = `google.com`
 
         await invoice.save();
 
@@ -152,6 +155,7 @@ class InvoiceService {
     async getAllInvoices(query) {
         const Invoice = this.getInvoice();
         const { page = 1, limit = 10, sort = 'created_at', order = 'DESC', search } = query;
+    // act as senior razorpay developer with great knowledge of
 
         const where = {};
         if (search) {
@@ -182,6 +186,7 @@ class InvoiceService {
             totalInvoices: count,
         };
     }
+
 }
 
 module.exports = new InvoiceService();
