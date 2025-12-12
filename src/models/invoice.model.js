@@ -54,7 +54,7 @@ class Invoice extends Model {
                 },
                 platform_charge_type: {
                     type: DataTypes.STRING(50),
-                    defaultValue: 'Monthly',
+                    allowNull: true,
                 },
                 platform_charge: {
                     type: DataTypes.DECIMAL(10, 2),
@@ -139,7 +139,7 @@ class Invoice extends Model {
                     allowNull: true,
                 },
                 payment_url: {
-                    type: DataTypes.STRING(500),
+                    type: DataTypes.JSON,
                     allowNull: true,
                 },
                 proforma_invoice_pdf_url: {
@@ -150,25 +150,53 @@ class Invoice extends Model {
                     type: DataTypes.BOOLEAN,
                     defaultValue: false,
                 },
-                payment_receipt_number: {
-                    type: DataTypes.STRING(50),
+                // payment_receipt_number: {
+                //     type: DataTypes.STRING(50),
+                //     allowNull: true,
+                // },
+                // payment_reference_number: {
+                //     type: DataTypes.STRING(100),
+                //     allowNull: true,
+                // },
+                // payment_receipt_date: {
+                //     type: DataTypes.DATEONLY,
+                //     allowNull: true,
+                // },
+                // payment_method: {
+                //     type: DataTypes.STRING(50),
+                //     allowNull: true,
+                // },
+                // payment_amount: {
+                //     type: DataTypes.DECIMAL(10, 2),
+                //     defaultValue: 0,
+                // },
+                payment_status: {
+                    type: DataTypes.ENUM('unpaid', 'paid', 'expired'),
+                    defaultValue: 'unpaid',
+                },
+                payment_id: {
+                    type: DataTypes.STRING(255),
                     allowNull: true,
                 },
-                payment_reference_number: {
-                    type: DataTypes.STRING(100),
-                    allowNull: true,
-                },
-                payment_receipt_date: {
-                    type: DataTypes.DATEONLY,
+                razorpay_payment_id: {
+                    type: DataTypes.STRING(255),
                     allowNull: true,
                 },
                 payment_method: {
                     type: DataTypes.STRING(50),
                     allowNull: true,
                 },
-                payment_amount: {
-                    type: DataTypes.DECIMAL(10, 2),
-                    defaultValue: 0,
+                razorpay_signature: {
+                    type: DataTypes.TEXT,
+                    allowNull: true,
+                },
+                paid_at: {
+                    type: DataTypes.DATE,
+                    allowNull: true,
+                },
+                payment_metadata: {
+                    type: DataTypes.JSON,
+                    allowNull: true,
                 },
                 payment_invoice_pdf_url: {
                     type: DataTypes.STRING(500),
@@ -184,7 +212,7 @@ class Invoice extends Model {
                 indexes: [
                     { fields: ['quotation_number'] },
                     { fields: ['proforma_number'] },
-                    { fields: ['payment_receipt_number'] },
+                    { fields: ['payment_id'] },
                     { fields: ['email'] },
                     { fields: ['created_at'] },
                 ],

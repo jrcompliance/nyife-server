@@ -7,7 +7,7 @@ class EmailController {
 
         const result = await emailService.sendInvoice(req.body);
 
-        res.status(200).json(
+        res.json(
             ApiResponse.success(result, 'Email sent successfully')
         );
     });

@@ -1,7 +1,7 @@
 const app = require('./src/app');
 const config = require('./src/config/env');
 const database = require('./src/config/database');
-const cache = require('./src/utils/cache');
+// const cache = require('./src/utils/cache');
 const logger = require('./src/utils/logger');
 
 let server;
@@ -12,7 +12,7 @@ async function startServer() {
         await database.connect();
 
         // Connect to cache
-        await cache.connect();
+        // await cache.connect();
 
         // Start server
         server = app.listen(config.port, () => {

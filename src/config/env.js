@@ -16,10 +16,10 @@ const config = {
             idle: parseInt(process.env.DB_POOL_IDLE, 10) || 10000,
         }
     },
-    redis: {
-        url: process.env.REDIS_URL || 'redis://localhost:6379',
-        maxRetriesPerRequest: 3,
-    },
+    // redis: {
+    //     url: process.env.REDIS_URL || 'redis://localhost:6379',
+    //     maxRetriesPerRequest: 3,
+    // },
     jwt: {
         secret: process.env.JWT_SECRET || 'fallback-secret-change-in-production',
         expire: process.env.JWT_EXPIRE || '7d',
@@ -43,6 +43,11 @@ const config = {
         pass: process.env.MAIL_PASSWORD,
         fromName: process.env.MAIL_FROM_NAME,
         from: process.env.MAIL_FROM_ADDRESS,
+    },
+    razorpay: {
+        keyId: process.env.RAZORPAY_KEY_ID,
+        keySecret: process.env.RAZORPAY_KEY_SECRET,
+        webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET,
     },
     baseUrl: process.env.BASE_URL || 'http://localhost:3000',
     apiVersion: process.env.API_VERSION || '/api/v1',

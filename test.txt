@@ -1,0 +1,842 @@
+// ============================================================================
+// RAZORPAY PAYMENT LINKS & WEBHOOKS IMPLEMENTATION (2025)
+// Complete solution for payment link generation and invoice updates
+// ============================================================================
+
+// ============================================================================
+// 1. ENVIRONMENT CONFIGURATION (.env)
+// ============================================================================
+/*
+RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxxxxx
+RAZORPAY_KEY_SECRET=your_secret_key_here
+RAZORPAY_WEBHOOK_SECRET=your_webhook_secret_here
+BASE_URL=http://localhost:3000
+FRONTEND_URL=http://localhost:5173
+*/
+
+// ============================================================================
+// 2. INSTALL DEPENDENCIES
+// ============================================================================
+/*
+npm install razorpay crypto
+*/
+
+// ============================================================================
+// 3. RAZORPAY CONFIGURATION
+// ============================================================================
+
+// config/razorpay.js
+const Razorpay = require('razorpay');
+const config = require('./env');
+
+const razorpayInstance = new Razorpay({
+    key_id: config.razorpay.keyId,
+    key_secret: config.razorpay.keySecret,
+});
+
+module.exports = razorpayInstance;
+
+// ============================================================================
+// 4. RAZORPAY SERVICE - Payment Link Creation
+// ============================================================================
+
+// services/razorpay.service.js
+const razorpay = require('../config/razorpay');
+const config = require('../config/env');
+const logger = require('../utils/logger');
+
+class RazorpayService {
+    /**
+     * Create Payment Link for Invoice
+     * @param {Object} invoiceData - Invoice details
+     * @returns {Promise<Object>} Payment link details
+     */
+    async createPaymentLink(invoiceData) {
+        try {
+            const {
+                invoiceId,
+                amount,
+                currency = 'INR',
+                customerName,
+                customerEmail,
+                customerPhone,
+                expiryInDays = 7,
+                notes = {}
+            } = invoiceData;
+
+            // Amount must be in smallest currency unit (paise for INR)
+            const amountInPaise = Math.round(amount * 100);
+
+            // Calculate expiry timestamp (Unix)
+            const expiryTimestamp = Math.floor(Date.now() / 1000) + (expiryInDays * 24 * 60 * 60);
+
+            const paymentLinkData = {
+                amount: amountInPaise,
+                currency: currency,
+                accept_partial: false,
+                description:`Payment for Invoice #${invoiceId}`,
+                reference_id: `INV_${invoiceId}`, // Unique reference
+                expire_by: expiryTimestamp,
+                customer: {
+                    name: customerName,
+                    email: customerEmail,
+                    contact: customerPhone
+                },
+                notify: {
+                    sms: true,
+                    email: true
+                },
+                reminder_enable: true,
+                notes: {
+                    invoice_id: invoiceId,
+                    ...notes
+                },
+                callback_url: `${config.frontendUrl}/payment/success`,
+                callback_method: 'get'
+            };
+
+            logger.info('Creating Razorpay payment link:', {
+                invoiceId,
+                amount: amountInPaise,
+                reference_id: paymentLinkData.reference_id
+            });
+
+            const paymentLink = await razorpay.paymentLink.create(paymentLinkData);
+
+            logger.info('Payment link created successfully:', {
+                paymentLinkId: paymentLink.id,
+                shortUrl: paymentLink.short_url
+            });
+
+            return {
+                success: true,
+                paymentLinkId: paymentLink.id,
+                paymentUrl: paymentLink.short_url,
+                longUrl: paymentLink.long_url,
+                referenceId: paymentLink.reference_id,
+                amount: paymentLink.amount,
+                status: paymentLink.status,
+                expiresAt: new Date(paymentLink.expire_by * 1000)
+            };
+
+        } catch (error) {
+            logger.error('Error creating payment link:', error);
+            throw new Error(`Failed to create payment link: ${error.message}`);
+        }
+    }
+
+    /**
+     * Fetch Payment Link Details
+     */
+    async getPaymentLink(paymentLinkId) {
+        try {
+            const paymentLink = await razorpay.paymentLink.fetch(paymentLinkId);
+            return paymentLink;
+        } catch (error) {
+            logger.error('Error fetching payment link:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Cancel Payment Link
+     */
+    async cancelPaymentLink(paymentLinkId) {
+        try {
+            const result = await razorpay.paymentLink.cancel(paymentLinkId);
+            logger.info('Payment link cancelled:', paymentLinkId);
+            return result;
+        } catch (error) {
+            logger.error('Error cancelling payment link:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Verify Webhook Signature
+     */
+    verifyWebhookSignature(webhookBody, signature, secret) {
+        const crypto = require('crypto');
+        
+        const expectedSignature = crypto
+            .createHmac('sha256', secret)
+            .update(JSON.stringify(webhookBody))
+            .digest('hex');
+
+        return expectedSignature === signature;
+    }
+
+    /**
+     * Fetch Payment Details
+     */
+    async getPayment(paymentId) {
+        try {
+            const payment = await razorpay.payments.fetch(paymentId);
+            return payment;
+        } catch (error) {
+            logger.error('Error fetching payment:', error);
+            throw error;
+        }
+    }
+}
+
+module.exports = new RazorpayService();
+
+// ============================================================================
+// 5. INVOICE SERVICE - Create Invoice & Payment Link
+// ============================================================================
+
+// services/invoice.service.js
+const database = require('../config/database');
+const razorpayService = require('./razorpay.service');
+const logger = require('../utils/logger');
+const { v4: uuidv4 } = require('uuid');
+
+class InvoiceService {
+    constructor() {
+        this.Invoice = null;
+    }
+
+    getModel() {
+        if (!this.Invoice) {
+            this.Invoice = database.getModels().Invoice;
+        }
+        return this.Invoice;
+    }
+
+    /**
+     * Create Invoice with Payment Link
+     */
+    async createInvoiceWithPaymentLink(invoiceData) {
+        const Invoice = this.getModel();
+        
+        try {
+            // Create invoice in database
+            const invoice = await Invoice.create({
+                uuid: uuidv4(),
+                customer_name: invoiceData.customerName,
+                customer_email: invoiceData.customerEmail,
+                customer_phone: invoiceData.customerPhone,
+                amount: invoiceData.amount,
+                currency: invoiceData.currency || 'INR',
+                description: invoiceData.description,
+                status: 'pending',
+                payment_status: 'unpaid',
+                notes: invoiceData.notes || {}
+            });
+
+            logger.info('Invoice created:', { invoiceId: invoice.id });
+
+            // Generate Razorpay payment link
+            const paymentLinkResult = await razorpayService.createPaymentLink({
+                invoiceId: invoice.id,
+                amount: invoice.amount,
+                currency: invoice.currency,
+                customerName: invoice.customer_name,
+                customerEmail: invoice.customer_email,
+                customerPhone: invoice.customer_phone,
+                description: invoice.description,
+                expiryInDays: 7,
+                notes: {
+                    invoice_uuid: invoice.uuid,
+                    ...invoice.notes
+                }
+            });
+
+            // Update invoice with payment link details
+            await invoice.update({
+                payment_link_id: paymentLinkResult.paymentLinkId,
+                payment_link_url: paymentLinkResult.paymentUrl,
+                payment_link_reference_id: paymentLinkResult.referenceId,
+                payment_link_expires_at: paymentLinkResult.expiresAt
+            });
+
+            return {
+                success: true,
+                invoice: invoice,
+                paymentLink: paymentLinkResult
+            };
+
+        } catch (error) {
+            logger.error('Error creating invoice with payment link:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get Invoice by ID
+     */
+    async getInvoice(invoiceId) {
+        const Invoice = this.getModel();
+        return await Invoice.findByPk(invoiceId);
+    }
+
+    /**
+     * Get Invoice by UUID
+     */
+    async getInvoiceByUuid(uuid) {
+        const Invoice = this.getModel();
+        return await Invoice.findOne({ where: { uuid } });
+    }
+
+    /**
+     * Update Invoice Payment Status
+     */
+    async updatePaymentStatus(invoiceId, paymentData) {
+        const Invoice = this.getModel();
+        
+        try {
+            const invoice = await Invoice.findByPk(invoiceId);
+            
+            if (!invoice) {
+                throw new Error('Invoice not found');
+            }
+
+            await invoice.update({
+                payment_status: 'paid',
+                payment_id: paymentData.paymentId,
+                payment_method: paymentData.method,
+                paid_at: new Date(),
+                razorpay_payment_id: paymentData.razorpayPaymentId,
+                razorpay_signature: paymentData.signature,
+                payment_metadata: paymentData.metadata || {}
+            });
+
+            logger.info('Invoice payment status updated:', {
+                invoiceId,
+                paymentId: paymentData.paymentId
+            });
+
+            return invoice;
+
+        } catch (error) {
+            logger.error('Error updating payment status:', error);
+            throw error;
+        }
+    }
+}
+
+module.exports = new InvoiceService();
+
+// ============================================================================
+// 6. WEBHOOK CONTROLLER - Handle Razorpay Webhooks
+// ============================================================================
+
+// controllers/webhook.controller.js
+const razorpayService = require('../services/razorpay.service');
+const invoiceService = require('../services/invoice.service');
+const config = require('../config/env');
+const logger = require('../utils/logger');
+
+class WebhookController {
+    /**
+     * Handle Razorpay Webhook Events
+     * POST /api/webhooks/razorpay
+     */
+    async handleRazorpayWebhook(req, res) {
+        try {
+            const webhookSignature = req.headers['x-razorpay-signature'];
+            const webhookBody = req.body;
+
+            // Verify webhook signature
+            const isValid = razorpayService.verifyWebhookSignature(
+                webhookBody,
+                webhookSignature,
+                config.razorpay.webhookSecret
+            );
+
+            if (!isValid) {
+                logger.error('Invalid webhook signature');
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid signature'
+                });
+            }
+
+            const event = webhookBody.event;
+            const payload = webhookBody.payload;
+
+            logger.info('Webhook received:', {
+                event,
+                accountId: webhookBody.account_id,
+                eventId: req.headers['x-razorpay-event-id']
+            });
+
+            // Handle different webhook events
+            switch (event) {
+                case 'payment_link.paid':
+                    await this.handlePaymentLinkPaid(payload);
+                    break;
+
+                case 'payment.captured':
+                    await this.handlePaymentCaptured(payload);
+                    break;
+
+                case 'payment.failed':
+                    await this.handlePaymentFailed(payload);
+                    break;
+
+                case 'payment_link.cancelled':
+                    await this.handlePaymentLinkCancelled(payload);
+                    break;
+
+                case 'payment_link.expired':
+                    await this.handlePaymentLinkExpired(payload);
+                    break;
+
+                default:
+                    logger.info('Unhandled webhook event:', event);
+            }
+
+            // Always return 200 to acknowledge receipt
+            return res.status(200).json({ 
+                success: true,
+                message: 'Webhook processed' 
+            });
+
+        } catch (error) {
+            logger.error('Error processing webhook:', error);
+            
+            // Still return 200 to prevent retries for processing errors
+            return res.status(200).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * Handle payment_link.paid event
+     */
+    async handlePaymentLinkPaid(payload) {
+        try {
+            const paymentLink = payload.payment_link.entity;
+            const payment = payload.payment.entity;
+
+            logger.info('Payment link paid:', {
+                paymentLinkId: paymentLink.id,
+                paymentId: payment.id,
+                amount: payment.amount
+            });
+
+            // Extract invoice ID from notes
+            const invoiceId = paymentLink.notes?.invoice_id;
+
+            if (!invoiceId) {
+                logger.error('Invoice ID not found in payment link notes');
+                return;
+            }
+
+            // Update invoice status
+            await invoiceService.updatePaymentStatus(invoiceId, {
+                paymentId: payment.id,
+                razorpayPaymentId: payment.id,
+                method: payment.method,
+                signature: null, // Not available in webhook
+                metadata: {
+                    amount_paid: payment.amount / 100,
+                    currency: payment.currency,
+                    status: payment.status,
+                    email: payment.email,
+                    contact: payment.contact,
+                    payment_link_id: paymentLink.id
+                }
+            });
+
+            logger.info('Invoice updated successfully for payment:', {
+                invoiceId,
+                paymentId: payment.id
+            });
+
+        } catch (error) {
+            logger.error('Error handling payment_link.paid:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Handle payment.captured event
+     */
+    async handlePaymentCaptured(payload) {
+        try {
+            const payment = payload.payment.entity;
+
+            logger.info('Payment captured:', {
+                paymentId: payment.id,
+                amount: payment.amount,
+                orderId: payment.order_id
+            });
+
+            // Additional processing if needed
+            
+        } catch (error) {
+            logger.error('Error handling payment.captured:', error);
+        }
+    }
+
+    /**
+     * Handle payment.failed event
+     */
+    async handlePaymentFailed(payload) {
+        try {
+            const payment = payload.payment.entity;
+
+            logger.warn('Payment failed:', {
+                paymentId: payment.id,
+                errorCode: payment.error_code,
+                errorDescription: payment.error_description
+            });
+
+            // You can update invoice status or send notification
+            
+        } catch (error) {
+            logger.error('Error handling payment.failed:', error);
+        }
+    }
+
+    /**
+     * Handle payment_link.cancelled event
+     */
+    async handlePaymentLinkCancelled(payload) {
+        try {
+            const paymentLink = payload.payment_link.entity;
+
+            logger.info('Payment link cancelled:', {
+                paymentLinkId: paymentLink.id,
+                referenceId: paymentLink.reference_id
+            });
+
+            // Update invoice status if needed
+            
+        } catch (error) {
+            logger.error('Error handling payment_link.cancelled:', error);
+        }
+    }
+
+    /**
+     * Handle payment_link.expired event
+     */
+    async handlePaymentLinkExpired(payload) {
+        try {
+            const paymentLink = payload.payment_link.entity;
+
+            logger.info('Payment link expired:', {
+                paymentLinkId: paymentLink.id,
+                referenceId: paymentLink.reference_id
+            });
+
+            // Update invoice status or send reminder
+            
+        } catch (error) {
+            logger.error('Error handling payment_link.expired:', error);
+        }
+    }
+}
+
+module.exports = new WebhookController();
+
+// ============================================================================
+// 7. INVOICE CONTROLLER
+// ============================================================================
+
+// controllers/invoice.controller.js
+const invoiceService = require('../services/invoice.service');
+const logger = require('../utils/logger');
+
+class InvoiceController {
+    /**
+     * Create Invoice with Payment Link
+     * POST /api/invoices
+     */
+    async createInvoice(req, res) {
+        try {
+            const {
+                customerName,
+                customerEmail,
+                customerPhone,
+                amount,
+                currency,
+                description,
+                notes
+            } = req.body;
+
+            // Validation
+            if (!customerName || !customerEmail || !amount) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Customer name, email, and amount are required'
+                });
+            }
+
+            const result = await invoiceService.createInvoiceWithPaymentLink({
+                customerName,
+                customerEmail,
+                customerPhone,
+                amount,
+                currency,
+                description,
+                notes
+            });
+
+            res.status(201).json({
+                success: true,
+                data: {
+                    invoice: result.invoice,
+                    paymentLink: result.paymentLink
+                }
+            });
+
+        } catch (error) {
+            logger.error('Error creating invoice:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Failed to create invoice',
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * Get Invoice by UUID
+     * GET /api/invoices/:uuid
+     */
+    async getInvoice(req, res) {
+        try {
+            const { uuid } = req.params;
+            const invoice = await invoiceService.getInvoiceByUuid(uuid);
+
+            if (!invoice) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Invoice not found'
+                });
+            }
+
+            res.json({
+                success: true,
+                data: invoice
+            });
+
+        } catch (error) {
+            logger.error('Error fetching invoice:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Failed to fetch invoice',
+                error: error.message
+            });
+        }
+    }
+}
+
+module.exports = new InvoiceController();
+
+// ============================================================================
+// 8. ROUTES CONFIGURATION
+// ============================================================================
+
+// routes/webhook.routes.js
+const express = require('express');
+const router = express.Router();
+const webhookController = require('../controllers/webhook.controller');
+
+// Razorpay webhook endpoint
+router.post('/razorpay', express.raw({ type: 'application/json' }), 
+    webhookController.handleRazorpayWebhook.bind(webhookController)
+);
+
+module.exports = router;
+
+// routes/invoice.routes.js
+const express = require('express');
+const router = express.Router();
+const invoiceController = require('../controllers/invoice.controller');
+
+router.post('/', invoiceController.createInvoice.bind(invoiceController));
+router.get('/:uuid', invoiceController.getInvoice.bind(invoiceController));
+
+module.exports = router;
+
+// ============================================================================
+// 9. APP.JS - Register Routes
+// ============================================================================
+
+/*
+// app.js
+const express = require('express');
+const app = express();
+
+// Important: Use express.json() BEFORE webhook routes
+// But webhook route needs raw body, so handle it separately
+
+const webhookRoutes = require('./routes/webhook.routes');
+const invoiceRoutes = require('./routes/invoice.routes');
+
+// Webhook route (before json middleware)
+app.use('/api/webhooks', webhookRoutes);
+
+// JSON middleware for other routes
+app.use(express.json());
+
+// Other routes
+app.use('/api/invoices', invoiceRoutes);
+
+module.exports = app;
+*/
+
+// ============================================================================
+// 10. TESTING THE IMPLEMENTATION
+// ============================================================================
+
+/*
+// Test creating invoice with payment link
+curl -X POST http://localhost:3000/api/invoices \
+  -H "Content-Type: application/json" \
+  -d '{
+    "customerName": "John Doe",
+    "customerEmail": "john@example.com",
+    "customerPhone": "+919876543210",
+    "amount": 1000,
+    "currency": "INR",
+    "description": "Payment for subscription"
+  }'
+
+// Response:
+{
+  "success": true,
+  "data": {
+    "invoice": { ... },
+    "paymentLink": {
+      "paymentLinkId": "plink_xxxxx",
+      "paymentUrl": "https://rzp.io/i/xxxxx",
+      "referenceId": "INV_123",
+      "amount": 100000,
+      "status": "created"
+    }
+  }
+}
+*/
+
+// ============================================================================
+// 11. INVOICE MODEL (Sequelize)
+// ============================================================================
+
+/*
+// models/invoice.model.js
+const { DataTypes, Model } = require('sequelize');
+
+class Invoice extends Model {
+    static initModel(sequelize) {
+        Invoice.init(
+            {
+                id: {
+                    type: DataTypes.INTEGER,
+                    primaryKey: true,
+                    autoIncrement: true,
+                },
+                uuid: {
+                    type: DataTypes.UUID,
+                    unique: true,
+                    allowNull: false,
+                },
+                customer_name: {
+                    type: DataTypes.STRING(255),
+                    allowNull: false,
+                },
+                customer_email: {
+                    type: DataTypes.STRING(255),
+                    allowNull: false,
+                },
+                customer_phone: {
+                    type: DataTypes.STRING(20),
+                    allowNull: true,
+                },
+                amount: {
+                    type: DataTypes.DECIMAL(10, 2),
+                    allowNull: false,
+                },
+                currency: {
+                    type: DataTypes.STRING(3),
+                    defaultValue: 'INR',
+                },
+                description: {
+                    type: DataTypes.TEXT,
+                    allowNull: true,
+                },
+                status: {
+                    type: DataTypes.ENUM('pending', 'completed', 'cancelled'),
+                    defaultValue: 'pending',
+                },
+                payment_status: {
+                    type: DataTypes.ENUM('unpaid', 'paid', 'failed'),
+                    defaultValue: 'unpaid',
+                },
+                payment_link_id: {
+                    type: DataTypes.STRING(255),
+                    allowNull: true,
+                },
+                payment_link_url: {
+                    type: DataTypes.TEXT,
+                    allowNull: true,
+                },
+                payment_link_reference_id: {
+                    type: DataTypes.STRING(255),
+                    allowNull: true,
+                },
+                payment_link_expires_at: {
+                    type: DataTypes.DATE,
+                    allowNull: true,
+                },
+                payment_id: {
+                    type: DataTypes.STRING(255),
+                    allowNull: true,
+                },
+                razorpay_payment_id: {
+                    type: DataTypes.STRING(255),
+                    allowNull: true,
+                },
+                payment_method: {
+                    type: DataTypes.STRING(50),
+                    allowNull: true,
+                },
+                razorpay_signature: {
+                    type: DataTypes.TEXT,
+                    allowNull: true,
+                },
+                paid_at: {
+                    type: DataTypes.DATE,
+                    allowNull: true,
+                },
+                notes: {
+                    type: DataTypes.JSON,
+                    allowNull: true,
+                },
+                payment_metadata: {
+                    type: DataTypes.JSON,
+                    allowNull: true,
+                },
+                created_at: {
+                    type: DataTypes.DATE,
+                    allowNull: false,
+                },
+                updated_at: {
+                    type: DataTypes.DATE,
+                    allowNull: false,
+                },
+            },
+            {
+                sequelize,
+                modelName: 'Invoice',
+                tableName: 'invoices',
+                timestamps: true,
+                createdAt: 'created_at',
+                updatedAt: 'updated_at',
+                underscored: true,
+            }
+        );
+
+        return Invoice;
+    }
+}
+
+module.exports = Invoice;
+*/

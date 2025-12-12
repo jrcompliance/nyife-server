@@ -28,6 +28,11 @@ class InvoiceController {
         res.json(ApiResponse.success(null, 'Invoice deleted successfully'));
     });
 
+    deleteAllInvoice = asyncHandler(async (req, res) => {
+        await invoiceService.deleteAllInvoice();
+        res.json(ApiResponse.success(null, 'All invoices deleted successfully'));
+    });
+
     getAllInvoices = asyncHandler(async (req, res) => {
         const result = await invoiceService.getAllInvoices(req.query);
         res.json(ApiResponse.success(result, 'Invoices retrieved successfully'));

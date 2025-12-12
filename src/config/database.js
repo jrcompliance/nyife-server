@@ -1,3 +1,5 @@
+// i am want to access subscription_plans table from mysql db which is already created using another microservice backend and i want to use sequelize to do that so how i can use it in my project.
+
 const { Sequelize } = require('sequelize');
 const config = require('./env');
 const logger = require('../utils/logger');
@@ -69,8 +71,10 @@ class Database {
     initializeModels() {
         // Import and initialize models here
         const Invoice = require('../models/invoice.model');
+        const SubscriptionPlan = require('../models/subscription-plan.model');
 
         this.models.Invoice = Invoice.initModel(this.sequelize);
+        this.models.SubscriptionPlan = SubscriptionPlan.initModel(this.sequelize);
 
         logger.info('Models initialized successfully');
     }

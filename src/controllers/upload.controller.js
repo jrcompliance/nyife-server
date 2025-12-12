@@ -11,7 +11,7 @@ class UploadController {
 
         const result = await uploadService.upload(req.body, req.file);
 
-        res.status(200).json(
+        res.json(
             ApiResponse.success(result, 'PDF uploaded and invoice updated successfully')
         );
     });

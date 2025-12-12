@@ -1,8 +1,9 @@
 const ApiError = require('../utils/ApiError');
-const cache = require('../utils/cache');
 const { Op } = require('sequelize');
 const database = require('../config/database');
-
+const razorpayService = require('./razorpay.service');
+const { sanitizePhoneNumber } = require('../utils/phoneNumber');
+const logger = require('../utils/logger');
 class InvoiceService {
     getInvoice() {
         return database.getModels().Invoice;
@@ -89,30 +90,109 @@ class InvoiceService {
             throw ApiError.notFound('Invoice not found');
         }
 
-        // TODO: Implement Proforma Invoice Generation
 
+        // Generate Razorpay payment link
+        const proformaNumber = `PI${Date.now()}${Math.floor(Math.random() * 1000)}`;
+        const phoneNumber = sanitizePhoneNumber(invoice.phone, invoice.phone.match(/^\+\d+/)?.[0]);
+        const paymentLinkResult = await razorpayService.createPaymentLink({
+            invoiceId: proformaNumber,
+            amount: invoice.total,
+            currency: "INR",
+            customerName: invoice.customer_name,
+            customerEmail: invoice.email,
+            customerPhone: phoneNumber,
+            expiryInDays: 7,
+            notes: {
+                invoice_id: invoice.id,
+                notes: {}
+            },
+        });
+
+        // Update invoice with payment link details
         invoice.proforma_invoice = true;
-        invoice.proforma_number = `PI${Date.now()}${Math.floor(Math.random() * 1000)}`;
+        invoice.proforma_number = proformaNumber;
         invoice.proforma_date = new Date().toISOString().split('T')[0];
-        invoice.proforma_valid_until_date = new Date(new Date().setDate(new Date().getDate() + 7)).toISOString().split('T')[0];
-        // TODO: Replace with actual payment url
-        const razorpay_link = `https://app.razorpay.com`;
-        // invoice.payment_url = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${razorpay_link}`;
-        invoice.payment_url = `google.com`
+        invoice.proforma_valid_until_date = paymentLinkResult.expiresAt.toISOString().split('T')[0],
+            invoice.payment_url = {
+                payment_link_id: paymentLinkResult.paymentLinkId,
+                payment_link_short_url: paymentLinkResult.paymentShortUrl,
+                payment_link_long_url: paymentLinkResult.longUrl,
+                payment_link_reference_id: paymentLinkResult.referenceId,
+                payment_link_expires_at: paymentLinkResult.expiresAt
+            }
 
+        // Save invoice
         await invoice.save();
 
-        await cache.del(`invoice:${invoiceId}`);
 
         return invoice;
     }
 
+    /**
+      * Update Invoice Payment Status
+      */
+    async updatePaymentStatus(invoiceId, paymentData) {
+        const Invoice = this.getInvoice();
+
+        try {
+            const invoice = await Invoice.findByPk(invoiceId);
+
+            if (!invoice) {
+                throw new Error('Invoice not found');
+            }
+
+            await invoice.update({
+                payment_receipt: true,
+                payment_status: 'paid',
+                payment_id: paymentData.paymentId,
+                payment_method: paymentData.method,
+                paid_at: new Date(),
+                razorpay_payment_id: paymentData.razorpayPaymentId,
+                razorpay_signature: paymentData.signature,
+                payment_metadata: paymentData.metadata || {}
+            });
+
+            logger.info('Invoice payment status updated:', {
+                invoiceId,
+                paymentId: paymentData.paymentId
+            });
+
+            return invoice;
+
+        } catch (error) {
+            logger.error('Error updating payment status:', error);
+            throw ApiError.internal(error.message || 'Failed to update payment status');
+        }
+    }
+
+    async updatePaymentStatusToExpired(invoiceId) {
+        const Invoice = this.getInvoice();
+
+        try {
+            const invoice = await Invoice.findByPk(invoiceId);
+
+            if (!invoice) {
+                throw new Error('Invoice not found');
+            }
+
+            await invoice.update({
+                payment_status: 'expired',
+            });
+
+            logger.info('Invoice payment status updated to expired:', {
+                invoiceId,
+            });
+
+            return invoice;
+
+        } catch (error) {
+            logger.error('Error updating payment status to expired:', error);
+            throw ApiError.internal(error.message || 'Failed to update payment status to expired');
+        }
+    }
+
     async getInvoiceById(invoiceId) {
         const Invoice = this.getInvoice();
-        const cacheKey = `invoice:${invoiceId}`;
-        const cached = await cache.get(cacheKey);
-
-        if (cached) return cached;
 
         const invoice = await Invoice.findByPk(invoiceId);
 
@@ -120,7 +200,6 @@ class InvoiceService {
             throw ApiError.notFound('Invoice not found');
         }
 
-        await cache.set(cacheKey, invoice, 600);
         return invoice;
     }
 
@@ -133,7 +212,6 @@ class InvoiceService {
         }
 
         await invoice.update(updateData);
-        await cache.del(`invoice:${invoiceId}`);
 
         return invoice;
     }
@@ -147,16 +225,26 @@ class InvoiceService {
         }
 
         await invoice.destroy();
-        await cache.del(`invoice:${invoiceId}`);
 
         return invoice;
+    }
+
+    async deleteAllInvoice(invoiceId) {
+        const Invoice = this.getInvoice();
+        try {
+            const invoice = await Invoice.destroy({
+                where: {},
+                force: true // Bypass soft delete, permanently delete
+            });
+            return invoice;
+        } catch (error) {
+            throw ApiError.internal(error.message || 'Failed to delete all invoices');
+        }
     }
 
     async getAllInvoices(query) {
         const Invoice = this.getInvoice();
         const { page = 1, limit = 10, sort = 'created_at', order = 'DESC', search } = query;
-    // act as senior razorpay developer with great knowledge of
-
         const where = {};
         if (search) {
             where[Op.or] = [

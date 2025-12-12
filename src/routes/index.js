@@ -2,6 +2,8 @@ const express = require('express');
 const invoiceRoutes = require('./invoice.routes');
 const uploadRoutes = require('./upload.routes');
 const emailRoutes = require('./email.routes');
+const subscriptionPlanRoutes = require('./subscription-plan.routes');
+const webhookRoutes = require('./webhook.routes');
 
 const router = express.Router();
 
@@ -11,12 +13,20 @@ const defaultRoutes = [
         route: invoiceRoutes,
     },
     {
+        path: '/webhooks',
+        route: webhookRoutes,
+    },
+    {
         path: '/uploads',
         route: uploadRoutes,
     },
     {
         path: '/email',
         route: emailRoutes,
+    },
+    {
+        path: "/subscription-plans",
+        route: subscriptionPlanRoutes,
     }
 ];
 
