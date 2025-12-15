@@ -76,19 +76,33 @@ class InvoiceService {
             // auto generate before saving
             quotation_number: `QI${Date.now()}${Math.floor(Math.random() * 1000)}`,
             quotation_date: new Date().toISOString().split('T')[0],
-            quotation_valid_until_date: new Date(new Date().setDate(new Date().getDate() + 30)).toISOString().split('T')[0],
+            quotation_valid_until_date: invoiceData.quotation_valid_until_date.split('T')[0],
         };
+
         const invoice = await Invoice.create(ProcessedInvoiceData);
         return invoice;
     }
 
-    async generateProformaInvoice(invoiceId) {
+    async generateProformaInvoice(invoiceId, invoiceData) {
         const Invoice = this.getInvoice();
         const invoice = await Invoice.findByPk(invoiceId);
+        const { proforma_valid_until_date } = invoiceData;
+
+        console.log("proforma_valid_until_date : ", proforma_valid_until_date);
 
         if (!invoice) {
             throw ApiError.notFound('Invoice not found');
         }
+
+        // Convert proforma_valid_until_date to Unix timestamp
+        const proformaExpiryDate = Math.floor(
+            new Date(proforma_valid_until_date).getTime() / 1000
+        );
+
+
+        // i got these value from my senior developer to making my backend nodejs server live - (host) i am zero at devops so please help me to making it live also help me to understand the step by step process
+
+        // 103.57.64.135    root    ohBuy68FN&^&&^
 
 
         // Generate Razorpay payment link
@@ -101,7 +115,7 @@ class InvoiceService {
             customerName: invoice.customer_name,
             customerEmail: invoice.email,
             customerPhone: phoneNumber,
-            expiryInDays: 7,
+            expiryInDays: proformaExpiryDate,
             notes: {
                 invoice_id: invoice.id,
                 notes: {}
@@ -112,7 +126,7 @@ class InvoiceService {
         invoice.proforma_invoice = true;
         invoice.proforma_number = proformaNumber;
         invoice.proforma_date = new Date().toISOString().split('T')[0];
-        invoice.proforma_valid_until_date = paymentLinkResult.expiresAt.toISOString().split('T')[0],
+        invoice.proforma_valid_until_date = proforma_valid_until_date.split('T')[0],
             invoice.payment_url = {
                 payment_link_id: paymentLinkResult.paymentLinkId,
                 payment_link_short_url: paymentLinkResult.paymentShortUrl,
@@ -253,7 +267,7 @@ class InvoiceService {
                 { email: { [Op.like]: `%${search}%` } },
                 { quotation_number: { [Op.like]: `%${search}%` } },
                 { proforma_number: { [Op.like]: `%${search}%` } },
-                { payment_receipt_number: { [Op.like]: `%${search}%` } },
+                { payment_id: { [Op.like]: `%${search}%` } },
 
             ];
         }

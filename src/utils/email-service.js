@@ -116,6 +116,12 @@ class EmailService {
                 to: invoice.email,
                 subject: `${invoice.invoice_type} #${invoice.invoice_number} from Complia Services`,
                 html,
+                attachments: [
+                    {
+                        filename: `${invoice.invoice_type}_${invoice.invoice_number}.pdf`,
+                        path: invoice.invoice_url,
+                    },
+                ]
             });
         } catch (error) {
             logger.error('Error in sendInvoiceEmail:', {
@@ -160,11 +166,12 @@ class EmailService {
             background-color: #ffffff;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             border:1px solid #EEEEEE;
+            border-radius: 16px;
 
         }
 
         .header {
-            background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+            background: #ff5100;
             color: #ffffff;
             padding: 30px 20px;
             text-align: center;
@@ -190,7 +197,7 @@ class EmailService {
         }
 
         .greeting h2 {
-            color: #1e40af;
+            color: #ff5100;
             font-size: 18px;
             margin-bottom: 15px;
             line-height: 1.4;
@@ -211,7 +218,7 @@ class EmailService {
 
         .button {
             display: inline-block;
-            background-color: #1e40af;
+            background-color: #ff5100;
             color: white !important;
             padding: 14px 28px;
             text-decoration: none;
@@ -221,7 +228,7 @@ class EmailService {
         }
 
         .footer {
-            background-color: #1e40af;
+            background-color: #ff5100;
             padding: 25px 20px;
             text-align: center;
             font-size: 12px;

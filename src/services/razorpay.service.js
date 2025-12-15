@@ -18,7 +18,7 @@ class RazorpayService {
                 customerName,
                 customerEmail,
                 customerPhone,
-                expiryInDays = 7,
+                expiryInDays = Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60),
                 notes = {}
             } = invoiceData;
 
@@ -26,7 +26,8 @@ class RazorpayService {
             const amountInPaise = Math.round(amount * 100);
 
             // Calculate expiry timestamp (Unix)
-            const expiryTimestamp = Math.floor(Date.now() / 1000) + (expiryInDays * 24 * 60 * 60);
+            // const expiryTimestamp = Math.floor(Date.now() / 1000) + (expiryInDays * 24 * 60 * 60);
+
 
             const paymentLinkData = {
                 amount: amountInPaise,
@@ -34,7 +35,8 @@ class RazorpayService {
                 accept_partial: false,
                 description: `Payment for Invoice #${invoiceId}`,
                 reference_id: invoiceId, // Unique reference
-                expire_by: expiryTimestamp,
+                // expire_by: expiryTimestamp,
+                expire_by: expiryInDays,
                 customer: {
                     name: customerName,
                     email: customerEmail,

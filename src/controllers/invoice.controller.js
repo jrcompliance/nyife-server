@@ -9,7 +9,7 @@ class InvoiceController {
     });
 
     generateProformaInvoice = asyncHandler(async (req, res) => {
-        const invoice = await invoiceService.generateProformaInvoice(req.params.id);
+        const invoice = await invoiceService.generateProformaInvoice(req.params.id, req.body);
         res.json(ApiResponse.created(invoice, 'Proforma invoice generated successfully'));
     });
 
