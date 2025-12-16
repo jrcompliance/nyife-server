@@ -8,7 +8,7 @@ const config = {
         port: parseInt(process.env.DB_PORT, 10) || 3306,
         name: process.env.DB_NAME || 'appdb',
         user: process.env.DB_USER || 'root',
-        password: process.env.DB_PASSWORD || '',
+        // password: process.env.DB_PASSWORD || '',
         pool: {
             max: parseInt(process.env.DB_POOL_MAX, 10) || 10,
             min: parseInt(process.env.DB_POOL_MIN, 10) || 2,
