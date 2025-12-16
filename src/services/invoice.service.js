@@ -274,19 +274,23 @@ class InvoiceService {
 
         const offset = (page - 1) * limit;
 
-        const { count, rows: invoices } = await Invoice.findAndCountAll({
-            where,
-            limit: parseInt(limit),
-            offset: parseInt(offset),
-            order: [[sort, order]],
-        });
+        try {
+            const { count, rows: invoices } = await Invoice.findAndCountAll({
+                where,
+                limit: parseInt(limit),
+                offset: parseInt(offset),
+                order: [[sort, order]],
+            });
+            return {
+                invoices,
+                totalPages: Math.ceil(count / limit),
+                currentPage: parseInt(page),
+                totalInvoices: count,
+            };
+        } catch (error) {
+            console.log("GET ALL INVOICES : ", error)
+        }
 
-        return {
-            invoices,
-            totalPages: Math.ceil(count / limit),
-            currentPage: parseInt(page),
-            totalInvoices: count,
-        };
     }
 
 }
