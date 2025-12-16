@@ -49,7 +49,7 @@ const config = {
         keySecret: process.env.RAZORPAY_KEY_SECRET,
         webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET,
     },
-    baseUrl: process.env.BASE_URL || 'http://localhost:3000',
+    baseUrl: process.env.BASE_URL,
     apiVersion: process.env.API_VERSION || '/api/v1',
 
 };

@@ -40,7 +40,7 @@ class SecurityConfig {
     getCorsConfig() {
         const whitelist = process.env.CORS_ORIGIN
             ? process.env.CORS_ORIGIN.split(',')
-            : ['http://localhost:3000', 'http://localhost:3001'];
+            : ['http://localhost:3000', 'http://localhost:8000', `https://wa.nyife.chat`];
 
         return {
             origin: (origin, callback) => {
