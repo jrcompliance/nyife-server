@@ -2,7 +2,7 @@ const nodemailer = require('nodemailer');
 const config = require('../config/env');
 const logger = require('./logger');
 const ApiError = require('./ApiError');
-const Logo = require('../assets/images/nyifeWhiteLogo.png')
+const path = require('path');
 
 class EmailService {
     constructor() {
@@ -118,6 +118,11 @@ class EmailService {
                 subject: `${invoice.invoice_type} #${invoice.invoice_number} from Complia Services`,
                 html,
                 attachments: [
+                    {
+                        filename: 'nyifeWhiteLogo.png',
+                        path: path.join(__dirname, '../assets/images/nyifeWhiteLogo.png'),
+                        cid: 'nyifeLogo'
+                    },
                     {
                         filename: `${invoice.invoice_type}_${invoice.invoice_number}.pdf`,
                         path: invoice.invoice_url,
@@ -301,7 +306,20 @@ class EmailService {
 <body>
     <div class="container">
         <div class="header">
-            <img src=${Logo} alt="nyife" height="100" style="padding:1rem;" />
+<img
+  src="cid:nyifeLogo"
+  alt="nyife"
+  width="180"
+  style="
+    display:block;
+    width:100%;
+    max-width:180px;
+    height:auto;
+    padding:1rem;
+    margin:0 auto;
+  "
+/>
+
             <h1>Complia Services Ltd</h1>
             <p>${invoice.invoice_type} #${invoice.invoice_number}</p>
         </div>
@@ -311,7 +329,7 @@ class EmailService {
                 <h2>Hello ${invoice.customer_name || 'Valued Customer'},</h2>
                 <div>
                     <p>Thank you for considering our services. We appreciate the opportunity to work with you and look forward to building a long-term partnership.</p>
-                    <p>Your ${invoice.invoice_type?.toLowerCase() || 'document'} is ready. Please find the details below.</p>
+                    <p>Your ${invoice.invoice_type?.toLowerCase() || 'document'} is ready. Please find the attach below.</p>
                     <p><strong>Best regards,</strong><br>Nyife Team</p>
                 </div>
             </div>
