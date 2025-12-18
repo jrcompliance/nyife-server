@@ -208,6 +208,7 @@ class Invoice extends Model {
                 payment_id: {
                     type: DataTypes.STRING(255),
                     allowNull: true,
+                    unique: true,
                 },
                 razorpay_payment_id: {
                     type: DataTypes.STRING(255),

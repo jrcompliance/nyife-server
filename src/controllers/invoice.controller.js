@@ -18,6 +18,11 @@ class InvoiceController {
         res.json(ApiResponse.success(invoice, 'Invoice retrieved successfully'));
     });
 
+    updatePayment = asyncHandler(async (req, res) => {
+        const invoice = await invoiceService.updatePayment(req.params.id, req.body);
+        res.json(ApiResponse.success(invoice, 'Payment updated successfully'));
+    });
+
     updateInvoice = asyncHandler(async (req, res) => {
         const invoice = await invoiceService.updateInvoice(req.params.id, req.body);
         res.json(ApiResponse.success(invoice, 'Invoice updated successfully'));

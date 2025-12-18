@@ -16,6 +16,7 @@ const invoiceValidation = [
 
 router.post('/', invoiceValidation, invoiceController.createInvoice);
 router.put('/generate-proforma/:id', invoiceController.generateProformaInvoice);
+router.put('/update-payment/:id', invoiceController.updatePayment);
 router.get('/', invoiceController.getAllInvoices);
 router.get('/:id', invoiceController.getInvoice);
 router.put('/:id', invoiceController.updateInvoice);

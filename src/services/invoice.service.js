@@ -137,6 +137,38 @@ class InvoiceService {
         return invoice;
     }
 
+    async updatePayment(invoiceId, paymentData) {
+        const Invoice = this.getInvoice();
+
+        try {
+            const invoice = await Invoice.findByPk(invoiceId);
+
+            if (!invoice) {
+                throw new Error('Invoice not found');
+            }
+
+            await invoice.update({
+                payment_receipt: true,
+                payment_status: 'paid',
+                payment_id: paymentData.payment_id,
+                payment_method: paymentData.payment_method,
+                paid_at: new Date(paymentData.paid_at),
+                payment_metadata: paymentData.payment_metadata || {}
+            });
+
+            logger.info('Payment updated:', {
+                invoiceId,
+                paymentId: paymentData.payment_id
+            });
+
+            return invoice;
+
+        } catch (error) {
+            logger.error('Error updating payment:', error);
+            throw ApiError.internal(error.message || 'Failed to update payment');
+        }
+    }
+
     /**
       * Update Invoice Payment Status
       */
