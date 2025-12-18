@@ -2,6 +2,7 @@ const nodemailer = require('nodemailer');
 const config = require('../config/env');
 const logger = require('./logger');
 const ApiError = require('./ApiError');
+const Logo = require('../assets/images/nyifeWhiteLogo.png')
 
 class EmailService {
     constructor() {
@@ -300,7 +301,7 @@ class EmailService {
 <body>
     <div class="container">
         <div class="header">
-            <img src="https://wa.nyife.chat/build/assets/nyifeBrand-ca10c9ec.svg" alt="nyife" height="100" style="background-color:white; padding:1rem; border-radius:8px" />
+            <img src=${Logo} alt="nyife" height="100" style="padding:1rem;" />
             <h1>Complia Services Ltd</h1>
             <p>${invoice.invoice_type} #${invoice.invoice_number}</p>
         </div>
