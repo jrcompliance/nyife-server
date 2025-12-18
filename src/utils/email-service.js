@@ -139,6 +139,7 @@ class EmailService {
 
     getInvoiceEmailTemplate(invoice) {
         return `
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -156,17 +157,20 @@ class EmailService {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             color: #333;
             line-height: 1.6;
-            background-color: #f5f5f5;
-            padding: 10px;
+            border-radius: 16px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
         }
 
         .container {
             max-width: 600px;
-            margin: 0 auto;
+            margin: 1rem;
             background-color: #ffffff;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             border:1px solid #EEEEEE;
-            border-radius: 16px;
+
 
         }
 
@@ -175,6 +179,7 @@ class EmailService {
             color: #ffffff;
             padding: 30px 20px;
             text-align: center;
+            border-radius: 8px 8px 0px 0px;
         }
 
         .header h1 {
@@ -234,6 +239,7 @@ class EmailService {
             font-size: 12px;
             color: white;
             border-top: 1px solid #e5e7eb;
+            border-radius: 0px 0px 8px 8px;
         }
 
         .footer p {
@@ -294,6 +300,7 @@ class EmailService {
 <body>
     <div class="container">
         <div class="header">
+            <img src="https://wa.nyife.chat/build/assets/nyifeBrand-ca10c9ec.svg" alt="nyife" height="100" style="background-color:white; padding:1rem; border-radius:8px" />
             <h1>Complia Services Ltd</h1>
             <p>${invoice.invoice_type} #${invoice.invoice_number}</p>
         </div>
@@ -304,13 +311,13 @@ class EmailService {
                 <div>
                     <p>Thank you for considering our services. We appreciate the opportunity to work with you and look forward to building a long-term partnership.</p>
                     <p>Your ${invoice.invoice_type?.toLowerCase() || 'document'} is ready. Please find the details below.</p>
-                    <p><strong>Best regards,</strong><br>Complia Services Team</p>
+                    <p><strong>Best regards,</strong><br>Nyife Team</p>
                 </div>
             </div>
 
-            ${invoice.invoice_url ? `
+            ${invoice.payment_url && invoice.invoice_type === "Proforma" ? `
             <div class="button-container">
-                <a href="${invoice.invoice_url}" download class="button">Download ${invoice.invoice_type}</a>
+                <a href="${invoice.payment_url}" download class="button">Click to pay</a>
             </div>
             ` : ''}
         </div>
@@ -325,6 +332,7 @@ class EmailService {
     </div>
 </body>
 </html>
+    
     `;
     }
 }

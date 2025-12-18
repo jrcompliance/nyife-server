@@ -5,7 +5,7 @@ const logger = require('../utils/logger');
 class EmailService {
 
     async sendInvoice(data) {
-        const { customer_name, invoice_type, invoice_number, invoice_url, email } = data;
+        const { customer_name, invoice_type, invoice_number, invoice_url, payment_url, email } = data;
 
         if (!customer_name || !invoice_type || !invoice_number || !invoice_url || !email) {
             throw ApiError.badRequest('Invalid data');
@@ -17,6 +17,7 @@ class EmailService {
                 invoice_type,
                 invoice_number,
                 invoice_url,
+                payment_url,
                 email,
             });
 
