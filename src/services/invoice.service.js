@@ -100,11 +100,6 @@ class InvoiceService {
         );
 
 
-        // i got these value from my senior developer to making my backend nodejs server live - (host) i am zero at devops so please help me to making it live also help me to understand the step by step process
-
-        // 103.57.64.135    root    ohBuy68FN&^&&^
-
-
         // Generate Razorpay payment link
         const proformaNumber = `PI${Date.now()}${Math.floor(Math.random() * 1000)}`;
         const phoneNumber = sanitizePhoneNumber(invoice.phone, invoice.phone.match(/^\+\d+/)?.[0]);
