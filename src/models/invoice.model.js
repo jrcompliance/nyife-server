@@ -80,8 +80,21 @@ class Invoice extends Model {
                     type: DataTypes.JSON,
                     allowNull: true,
                     defaultValue: null,
-                }
-                ,
+                },
+                signature: {
+                    type: DataTypes.STRING(100),
+                    allowNull: false,
+                    validate: {
+                        notEmpty: { msg: 'Signature is required' },
+                    },
+                },
+                designation: {
+                    type: DataTypes.STRING(100),
+                    allowNull: false,
+                    validate: {
+                        notEmpty: { msg: 'Designation is required' },
+                    },
+                },
                 sub_total: {
                     type: DataTypes.DECIMAL(10, 2),
                     defaultValue: 0,
