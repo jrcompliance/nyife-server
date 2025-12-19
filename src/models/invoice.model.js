@@ -173,6 +173,10 @@ class Invoice extends Model {
                     type: DataTypes.JSON,
                     allowNull: true,
                 },
+                created_by: {
+                    type: DataTypes.JSON,
+                    allowNull: false,
+                },
                 proforma_invoice_pdf_url: {
                     type: DataTypes.STRING(500),
                     allowNull: true,

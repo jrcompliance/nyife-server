@@ -1,5 +1,5 @@
 const ApiError = require('../utils/ApiError');
-const { Op } = require('sequelize');
+const { Op, Sequelize } = require('sequelize');
 const database = require('../config/database');
 const razorpayService = require('./razorpay.service');
 const { sanitizePhoneNumber } = require('../utils/phoneNumber');
@@ -182,11 +182,19 @@ class InvoiceService {
                 throw new Error('Invoice not found');
             }
 
+            const paymentsMethods = {
+                card: "Card",
+                netbanking: "Net Banking",
+                wallet: "Wallet",
+                emi: "EMI",
+                upi: "UPI"
+            }
+
             await invoice.update({
                 payment_receipt: true,
                 payment_status: 'paid',
                 payment_id: paymentData.paymentId,
-                payment_method: paymentData.method,
+                payment_method: paymentsMethods[paymentData.method] || paymentData.method,
                 paid_at: new Date(),
                 razorpay_payment_id: paymentData.razorpayPaymentId,
                 razorpay_signature: paymentData.signature,
