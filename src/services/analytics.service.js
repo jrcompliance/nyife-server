@@ -11,7 +11,7 @@ class AnalyticsService {
     async getDashboardStats(query) {
         const Invoice = this.getInvoice();
         try {
-            const { startDate, endDate, paymentStatus, platformChargeType } = query;
+            const { startDate, endDate, paymentStatus, platformChargeType, createdBy } = query;
 
             // Build where clause for filters
             const whereClause = {};
@@ -27,11 +27,15 @@ class AnalyticsService {
                 whereClause.platform_charge_type = platformChargeType;
             }
 
+            if (createdBy) {
+                whereClause[Op.and] = [literal(`JSON_EXTRACT(created_by, '$.id') = ${createdBy}`)];
+            }
+
             // Total Revenue
             const revenueData = await Invoice.findOne({
                 attributes: [
                     [fn('SUM', col('total')), 'totalRevenue'],
-                    [fn('SUM', col('platform_charge')), 'platformRevenue'],
+                    // [fn('SUM', col('platform_charge')), 'platformRevenue'],
                     [fn('SUM', col('wallet_recharge')), 'walletRevenue'],
                     [fn('SUM', col('discount_amount')), 'totalDiscount'],
                     [fn('SUM', col('GST_amount')), 'totalGST']
@@ -61,7 +65,7 @@ class AnalyticsService {
 
             return {
                 totalRevenue: parseFloat(revenueData.totalRevenue || 0),
-                platformRevenue: parseFloat(revenueData.platformRevenue || 0),
+                // platformRevenue: parseFloat(revenueData.platformRevenue || 0),
                 walletRevenue: parseFloat(revenueData.walletRevenue || 0),
                 totalGST: parseFloat(revenueData.totalGST || 0),
                 totalDiscount: parseFloat(revenueData.totalDiscount || 0),
@@ -85,13 +89,17 @@ class AnalyticsService {
     async getRevenueTrend(query) {
         const Invoice = this.getInvoice();
         try {
-            const { groupBy = 'day', startDate, endDate } = query;
+            const { groupBy = 'day', startDate, endDate, createdBy } = query;
 
             const whereClause = {};
             if (startDate && endDate) {
                 whereClause.created_at = {
                     [Op.between]: [new Date(startDate), new Date(endDate)]
                 };
+            }
+
+            if (createdBy) {
+                whereClause[Op.and] = [literal(`JSON_EXTRACT(created_by, '$.id') = ${createdBy}`)];
             }
 
             let dateFormat;
@@ -139,13 +147,17 @@ class AnalyticsService {
     async getPaymentMethodAnalysis(query) {
         const Invoice = this.getInvoice();
         try {
-            const { startDate, endDate } = query;
+            const { startDate, endDate, createdBy } = query;
 
             const whereClause = { payment_status: 'paid' };
             if (startDate && endDate) {
                 whereClause.created_at = {
                     [Op.between]: [new Date(startDate), new Date(endDate)]
                 };
+            }
+
+            if (createdBy) {
+                whereClause[Op.and] = [literal(`JSON_EXTRACT(created_by, '$.id') = ${createdBy}`)];
             }
 
             const paymentMethods = await Invoice.findAll({
@@ -174,13 +186,17 @@ class AnalyticsService {
     async getPlatformChargeAnalysis(query) {
         const Invoice = this.getInvoice();
         try {
-            const { startDate, endDate } = query;
+            const { startDate, endDate, createdBy } = query;
 
             const whereClause = {};
             if (startDate && endDate) {
                 whereClause.created_at = {
                     [Op.between]: [new Date(startDate), new Date(endDate)]
                 };
+            }
+
+            if (createdBy) {
+                whereClause[Op.and] = [literal(`JSON_EXTRACT(created_by, '$.id') = ${createdBy}`)];
             }
 
             const chargeTypes = await Invoice.findAll({
@@ -200,7 +216,7 @@ class AnalyticsService {
                 count: parseInt(type.count),
                 totalCharge: parseFloat(type.totalCharge || 0),
                 avgCharge: parseFloat(type.avgCharge || 0)
-            }))
+            })).filter(i => i.type !== 'Not Set');
         } catch (error) {
             console.error('Error fetching platform charge analysis:', error);
             throw ApiError.internal(error.message || 'Failed to get platform charge analysis');
@@ -211,13 +227,17 @@ class AnalyticsService {
     async getTopCustomers(query) {
         const Invoice = this.getInvoice();
         try {
-            const { limit = 10, startDate, endDate } = query;
+            const { limit = 10, startDate, endDate, createdBy } = query;
 
             const whereClause = {};
             if (startDate && endDate) {
                 whereClause.created_at = {
                     [Op.between]: [new Date(startDate), new Date(endDate)]
                 };
+            }
+
+            if (createdBy) {
+                whereClause[Op.and] = [literal(`JSON_EXTRACT(created_by, '$.id') = ${createdBy}`)];
             }
 
             const topCustomers = await Invoice.findAll({
@@ -254,7 +274,7 @@ class AnalyticsService {
     async getDiscountAnalysis(query) {
         const Invoice = this.getInvoice();
         try {
-            const { startDate, endDate } = query;
+            const { startDate, endDate, createdBy } = query;
 
             const whereClause = {
                 discount: { [Op.gt]: 0 }
@@ -263,6 +283,9 @@ class AnalyticsService {
                 whereClause.created_at = {
                     [Op.between]: [new Date(startDate), new Date(endDate)]
                 };
+            }
+            if (createdBy) {
+                whereClause[Op.and] = [literal(`JSON_EXTRACT(created_by, '$.id') = ${createdBy}`)];
             }
 
             const discountStats = await Invoice.findOne({
@@ -292,66 +315,67 @@ class AnalyticsService {
             throw ApiError.internal(error.message || 'Failed to get discount analysis');
         }
     }
-
-    // Invoice list with filters
-    async getFilteredInvoices(query) {
-        const Invoice = this.getInvoice();
-        try {
-            const {
-                page = 1,
-                limit = 10,
-                paymentStatus,
-                platformChargeType,
-                startDate,
-                endDate,
-                search
-            } = query;
-
-            const whereClause = {};
-
-            if (paymentStatus) {
-                whereClause.payment_status = paymentStatus;
-            }
-            if (platformChargeType) {
-                whereClause.platform_charge_type = platformChargeType;
-            }
-            if (startDate && endDate) {
-                whereClause.created_at = {
-                    [Op.between]: [new Date(startDate), new Date(endDate)]
-                };
-            }
-            if (search) {
-                whereClause[Op.or] = [
-                    { company_name: { [Op.like]: `%${search}%` } },
-                    { contact_person: { [Op.like]: `%${search}%` } },
-                    { email: { [Op.like]: `%${search}%` } },
-                    { quotation_number: { [Op.like]: `%${search}%` } }
-                ];
-            }
-
-            const offset = (parseInt(page) - 1) * parseInt(limit);
-
-            const { count, rows } = await Invoice.findAndCountAll({
-                where: whereClause,
-                limit: parseInt(limit),
-                offset,
-                order: [['created_at', 'DESC']]
-            });
-
-            return {
-                invoices: rows,
-                pagination: {
-                    total: count,
-                    page: parseInt(page),
-                    limit: parseInt(limit),
-                    totalPages: Math.ceil(count / parseInt(limit))
-                }
-            }
-        } catch (error) {
-            console.error('Error fetching filtered invoices:', error);
-            throw ApiError.internal(error.message || 'Failed to get filtered invoices');
-        }
-    }
 };
 
 module.exports = new AnalyticsService();
+
+
+// // Invoice list with filters
+// async getFilteredInvoices(query) {
+//     const Invoice = this.getInvoice();
+//     try {
+//         const {
+//             page = 1,
+//             limit = 10,
+//             paymentStatus,
+//             platformChargeType,
+//             startDate,
+//             endDate,
+//             search
+//         } = query;
+
+//         const whereClause = {};
+
+//         if (paymentStatus) {
+//             whereClause.payment_status = paymentStatus;
+//         }
+//         if (platformChargeType) {
+//             whereClause.platform_charge_type = platformChargeType;
+//         }
+//         if (startDate && endDate) {
+//             whereClause.created_at = {
+//                 [Op.between]: [new Date(startDate), new Date(endDate)]
+//             };
+//         }
+//         if (search) {
+//             whereClause[Op.or] = [
+//                 { company_name: { [Op.like]: `%${search}%` } },
+//                 { contact_person: { [Op.like]: `%${search}%` } },
+//                 { email: { [Op.like]: `%${search}%` } },
+//                 { quotation_number: { [Op.like]: `%${search}%` } }
+//             ];
+//         }
+
+//         const offset = (parseInt(page) - 1) * parseInt(limit);
+
+//         const { count, rows } = await Invoice.findAndCountAll({
+//             where: whereClause,
+//             limit: parseInt(limit),
+//             offset,
+//             order: [['created_at', 'DESC']]
+//         });
+
+//         return {
+//             invoices: rows,
+//             pagination: {
+//                 total: count,
+//                 page: parseInt(page),
+//                 limit: parseInt(limit),
+//                 totalPages: Math.ceil(count / parseInt(limit))
+//             }
+//         }
+//     } catch (error) {
+//         console.error('Error fetching filtered invoices:', error);
+//         throw ApiError.internal(error.message || 'Failed to get filtered invoices');
+//     }
+// }
