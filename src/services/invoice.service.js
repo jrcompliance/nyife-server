@@ -1,5 +1,5 @@
 const ApiError = require('../utils/ApiError');
-const { Op, Sequelize } = require('sequelize');
+const { Op, fn, col, literal } = require('sequelize');
 const database = require('../config/database');
 const razorpayService = require('./razorpay.service');
 const { sanitizePhoneNumber } = require('../utils/phoneNumber');
@@ -292,36 +292,104 @@ class InvoiceService {
     }
 
     async getAllInvoices(query) {
-        const Invoice = this.getInvoice();
-        const { page = 1, limit = 10, sort = 'created_at', order = 'DESC', search } = query;
-        const where = {};
-        if (search) {
-            where[Op.or] = [
-                { company_name: { [Op.like]: `%${search}%` } },
-                { contact_person: { [Op.like]: `%${search}%` } },
-                { email: { [Op.like]: `%${search}%` } },
-                { quotation_number: { [Op.like]: `%${search}%` } },
-                { proforma_number: { [Op.like]: `%${search}%` } },
-                { payment_id: { [Op.like]: `%${search}%` } },
+        try {
+            const Invoice = this.getInvoice();
+            const { page = 1, limit = 10, sort = 'created_at', order = 'DESC', paymentStatus, platformChargeType, startDate, endDate, search, createdBy } = query;
+            const where = {};
 
-            ];
+            if (paymentStatus) {
+                where.payment_status = paymentStatus;
+            }
+            if (platformChargeType) {
+                where.platform_charge_type = platformChargeType;
+            }
+            if (startDate && endDate) {
+                where.created_at = {
+                    [Op.between]: [new Date(startDate), new Date(endDate)]
+                };
+            }
+            if (createdBy) {
+                where[Op.and] = [literal(`JSON_EXTRACT(created_by, '$.id') = ${createdBy}`)];
+            }
+            if (search) {
+                where[Op.or] = [
+                    { company_name: { [Op.like]: `%${search}%` } },
+                    { contact_person: { [Op.like]: `%${search}%` } },
+                    { email: { [Op.like]: `%${search}%` } },
+                    { quotation_number: { [Op.like]: `%${search}%` } },
+                    { proforma_number: { [Op.like]: `%${search}%` } },
+                    { payment_id: { [Op.like]: `%${search}%` } },
+
+                ];
+            }
+
+            const offset = (page - 1) * limit;
+
+            const { count, rows: invoices } = await Invoice.findAndCountAll({
+                where,
+                raw: true,
+                limit: parseInt(limit),
+                offset: parseInt(offset),
+                order: [[sort, order]],
+            });
+
+
+            // Total Revenue
+            const revenueData = await Invoice.findOne({
+                attributes: [
+                    [fn('SUM', col('total')), 'totalRevenue'],
+                    [fn('SUM', col('wallet_recharge')), 'walletRevenue'],
+                    [fn('SUM', col('discount_amount')), 'totalDiscount'],
+                    [fn('SUM', col('GST_amount')), 'totalGST']
+                ],
+                where: where,
+                raw: true
+            });
+
+            // Payment Status Breakdown
+            const paymentStatusCount = await Invoice.findAll({
+                attributes: [
+                    'payment_status',
+                    [fn('COUNT', col('id')), 'count'],
+                    [fn('SUM', col('total')), 'amount']
+                ],
+                where: where,
+                group: ['payment_status'],
+                raw: true
+            });
+
+            // Total Invoices
+            const totalInvoices = await Invoice.count({ where: where });
+
+            // Paid vs Unpaid
+            const paidInvoices = paymentStatusCount.find(s => s.payment_status === 'paid') || { count: 0, amount: 0 };
+            const unpaidInvoices = paymentStatusCount.find(s => s.payment_status === 'unpaid') || { count: 0, amount: 0 };
+
+            return {
+                invoices,
+                stats: {
+                    totalRevenue: parseFloat(revenueData.totalRevenue || 0),
+                    walletRevenue: parseFloat(revenueData.walletRevenue || 0),
+                    totalGST: parseFloat(revenueData.totalGST || 0),
+                    totalDiscount: parseFloat(revenueData.totalDiscount || 0),
+                    totalInvoices,
+                    paidInvoices: {
+                        count: parseInt(paidInvoices.count),
+                        amount: parseFloat(paidInvoices.amount || 0)
+                    },
+                    unpaidInvoices: {
+                        count: parseInt(unpaidInvoices.count),
+                        amount: parseFloat(unpaidInvoices.amount || 0)
+                    }
+                },
+                totalPages: Math.ceil(count / limit),
+                currentPage: parseInt(page),
+                totalInvoices: count,
+            };
+        } catch (error) {
+            console.error('Error fetching invoices:', error);
+            throw ApiError.internal(error.message || 'Failed to fetch invoices');
         }
-
-        const offset = (page - 1) * limit;
-
-        const { count, rows: invoices } = await Invoice.findAndCountAll({
-            where,
-            limit: parseInt(limit),
-            offset: parseInt(offset),
-            order: [[sort, order]],
-        });
-
-        return {
-            invoices,
-            totalPages: Math.ceil(count / limit),
-            currentPage: parseInt(page),
-            totalInvoices: count,
-        };
 
 
     }

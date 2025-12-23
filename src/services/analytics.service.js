@@ -35,7 +35,6 @@ class AnalyticsService {
             const revenueData = await Invoice.findOne({
                 attributes: [
                     [fn('SUM', col('total')), 'totalRevenue'],
-                    // [fn('SUM', col('platform_charge')), 'platformRevenue'],
                     [fn('SUM', col('wallet_recharge')), 'walletRevenue'],
                     [fn('SUM', col('discount_amount')), 'totalDiscount'],
                     [fn('SUM', col('GST_amount')), 'totalGST']
@@ -65,7 +64,6 @@ class AnalyticsService {
 
             return {
                 totalRevenue: parseFloat(revenueData.totalRevenue || 0),
-                // platformRevenue: parseFloat(revenueData.platformRevenue || 0),
                 walletRevenue: parseFloat(revenueData.walletRevenue || 0),
                 totalGST: parseFloat(revenueData.totalGST || 0),
                 totalDiscount: parseFloat(revenueData.totalDiscount || 0),
