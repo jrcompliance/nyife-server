@@ -6,9 +6,8 @@ const logger = require('../utils/logger');
 class GstService {
     constructor() {
         this.POLL_INTERVAL = 2 * 1000; // 2 seconds
-        this.MAX_POLL_TIME = 1 * 10 * 1000; // 50 seconds
+        this.MAX_POLL_TIME = 1 * 50 * 1000; // 50 seconds
         // this.CACHE_TTL = 3600; // 1 hour
-
     }
 
     getGstInfo() {
@@ -128,7 +127,6 @@ class GstService {
             poll();
         });
     }
-
 
     async verifyGst(gstNumber) {
         try {
