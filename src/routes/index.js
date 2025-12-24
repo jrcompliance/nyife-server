@@ -1,5 +1,6 @@
 const express = require('express');
 const invoiceRoutes = require('./invoice.routes');
+const gstRoutes = require('./gst_info.routes');
 const analyticsRoutes = require('./analytics.routes');
 const uploadRoutes = require('./upload.routes');
 const emailRoutes = require('./email.routes');
@@ -12,6 +13,10 @@ const defaultRoutes = [
     {
         path: '/invoices',
         route: invoiceRoutes,
+    },
+    {
+        path: '/gst',
+        route: gstRoutes,
     },
     {
         path: '/analytics',

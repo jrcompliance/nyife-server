@@ -71,9 +71,11 @@ class Database {
     initializeModels() {
         // Import and initialize models here
         const Invoice = require('../models/invoice.model');
+        const GstInfo = require('../models/gstInfo.model');
         const SubscriptionPlan = require('../models/subscription-plan.model');
 
         this.models.Invoice = Invoice.initModel(this.sequelize);
+        this.models.GstInfo = GstInfo.initModel(this.sequelize);
         this.models.SubscriptionPlan = SubscriptionPlan.initModel(this.sequelize);
 
         logger.info('Models initialized successfully');

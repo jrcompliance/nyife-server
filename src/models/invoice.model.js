@@ -22,6 +22,10 @@ class Invoice extends Model {
                         notEmpty: { msg: 'Company name is required' },
                     },
                 },
+                gst_number: {
+                    type: DataTypes.STRING(15),
+                    allowNull: true,
+                },
                 contact_person: {
                     type: DataTypes.STRING(100),
                     allowNull: false,

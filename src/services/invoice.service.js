@@ -319,7 +319,7 @@ class InvoiceService {
                     { quotation_number: { [Op.like]: `%${search}%` } },
                     { proforma_number: { [Op.like]: `%${search}%` } },
                     { payment_id: { [Op.like]: `%${search}%` } },
-
+                    { gst_number: { [Op.like]: `%${search}%` } },
                 ];
             }
 
