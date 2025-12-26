@@ -1,0 +1,226 @@
+Can we create like this for consistent code style.
+
+
+// route 
+const express = require('express');
+const { body } = require('express-validator');
+const gstController = require('../controllers/gst_info.controller');
+const validate = require('../middleware/validation.middleware');
+
+const router = express.Router();
+
+const gstValidation = [
+    body('gst_number')
+        .trim()
+        .notEmpty().withMessage('GST number is required')
+        .isLength({ min: 15, max: 15 }).withMessage('GST number must be 15 characters')
+        .matches(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/)
+        .withMessage('Invalid GST number format'),
+    validate,
+];
+
+router.post('/verify', gstValidation, gstController.verifyGst);
+router.post('/is-exists', gstValidation, gstController.isGstExists);
+
+module.exports = router;
+
+
+// controller
+const gstService = require('../services/gst_info.service');
+const ApiResponse = require('../utils/ApiResponse');
+const asyncHandler = require('../utils/asyncHandler');
+
+class GstController {
+    verifyGst = asyncHandler(async (req, res) => {
+        const { gst_number } = req.body;
+        const result = await gstService.verifyGst(gst_number);
+        res.json(ApiResponse.success(result, 'GST verified successfully'));
+    });
+
+    isGstExists = asyncHandler(async (req, res) => {
+        const { gst_number } = req.body;
+        const result = await gstService.isGstExists(gst_number);
+        res.json(ApiResponse.success(result, 'GST status retrieved'));
+    });
+}
+
+module.exports = new GstController();
+
+
+// service
+
+const ApiError = require('../utils/ApiError');
+const database = require('../config/database');
+const logger = require('../utils/logger');
+
+class GstService {
+    constructor() {
+        this.POLL_INTERVAL = 2 * 1000; // 2 seconds
+        this.MAX_POLL_TIME = 1 * 50 * 1000; // 50 seconds
+    }
+
+    getGstInfo() {
+        return database.getModels().GstInfo;
+    }
+
+    validateGstNumber(gstNumber) {
+        if (!gstNumber || typeof gstNumber !== 'string') {
+            throw ApiError.badRequest('GST number is required');
+        }
+
+        const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+        const cleanGst = gstNumber.toUpperCase().trim();
+
+        if (cleanGst.length !== 15) {
+            throw ApiError.badRequest('GST number must be exactly 15 characters');
+        }
+
+        if (!gstRegex.test(cleanGst)) {
+            throw ApiError.badRequest('Invalid GST number format');
+        }
+        return cleanGst;
+
+    }
+
+    async getOrCreateGstInfo(gstNumber) {
+        const GstInfo = this.getGstInfo();
+        const validGst = this.validateGstNumber(gstNumber);
+
+        let gstInfo = await GstInfo.findOne({
+            where: { gst_number: validGst },
+            raw: true
+        });
+
+        if (!gstInfo) {
+            await GstInfo.create({
+                gst_number: validGst,
+                status: false,
+                gst_data: null,
+                requested_at: new Date(),
+            });
+            logger.info(`New GST record created: ${validGst}`);
+            return null;
+        }
+
+        return gstInfo;
+
+    }
+
+    async isGstExists(gstNumber) {
+        const GstInfo = this.getGstInfo();
+        const validGst = this.validateGstNumber(gstNumber);
+
+        const gstInfo = await GstInfo.findOne({
+            where: { gst_number: validGst },
+            raw: true
+        });
+
+        if (!gstInfo) {
+            throw ApiError.notFound('GST record not found');
+        }
+
+        return {
+            id: gstInfo.id,
+            gst_number: gstInfo.gst_number,
+            status: gstInfo.status,
+            gst_data: gstInfo.gst_data,
+            requested_at: gstInfo.requested_at,
+            completed_at: gstInfo.completed_at,
+        };
+
+    }
+
+    async pollGstData(gstNumber) {
+        const startTime = Date.now();
+
+        return new Promise((resolve, reject) => {
+            const poll = async () => {
+                try {
+                    const elapsed = Date.now() - startTime;
+
+                    if (elapsed >= this.MAX_POLL_TIME) {
+                        logger.warn(`GST polling timeout for ${gstNumber}`);
+                        return reject(
+                            ApiError.tooManyRequests(
+                                'GST verification timeout. Please try again later.'
+                            )
+                        );
+                    }
+
+                    const gstInfo = await this.isGstExists(gstNumber);
+
+                    if (gstInfo?.status === true && gstInfo?.gst_data) {
+                        logger.info(`GST data retrieved: ${gstNumber}`);
+                        return resolve(gstInfo);
+                    }
+
+                    setTimeout(poll, this.POLL_INTERVAL);
+
+                } catch (error) {
+                    logger.error(`GST polling error for ${gstNumber}`, error);
+
+                    // Preserve ApiError
+                    if (error instanceof ApiError) {
+                        return reject(error);
+                    }
+
+                    // Convert unknown errors
+                    return reject(
+                        ApiError.internal(
+                            error?.message || 'GST verification failed'
+                        )
+                    );
+                }
+            };
+
+            poll();
+        });
+    }
+
+    async verifyGst(gstNumber) {
+        try {
+            const gstInfo = await this.getOrCreateGstInfo(gstNumber);
+
+            if (gstInfo?.status && gstInfo?.gst_data) {
+                logger.info(`GST data retrieved : ${gstNumber}`);
+                return gstInfo;
+            }
+
+            return await this.pollGstData(gstNumber);
+
+        } catch (error) {
+            throw error;
+        }
+    }
+}
+
+module.exports = new GstService();
+
+
+
+
+
+
+////////////////////////////////////////////// DB MIGRATION CODE ////////////////////////////////////////////////
+
+
+# Generate a new migration
+npx sequelize-cli migration:generate --name create-bank-info
+
+# Run migrations
+npx sequelize-cli db:migrate
+
+# Rollback last migration
+npx sequelize-cli db:migrate:undo
+
+# Rollback all migrations
+npx sequelize-cli db:migrate:undo:all
+
+# Run specific migration
+npx sequelize-cli db:migrate --to YYYYMMDDHHMMSS-create-bank-info.js
+
+# Run seeders
+npx sequelize-cli db:seed:all
+
+# Undo seeders
+npx sequelize-cli db:seed:undo:all

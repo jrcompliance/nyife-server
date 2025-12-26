@@ -86,9 +86,7 @@ class InvoiceService {
     async generateProformaInvoice(invoiceId, invoiceData) {
         const Invoice = this.getInvoice();
         const invoice = await Invoice.findByPk(invoiceId);
-        const { proforma_valid_until_date } = invoiceData;
-
-        console.log("proforma_valid_until_date : ", proforma_valid_until_date);
+        const { proforma_valid_until_date, payment_terms } = invoiceData;
 
         if (!invoice) {
             throw ApiError.notFound('Invoice not found');
@@ -119,6 +117,7 @@ class InvoiceService {
 
         // Update invoice with payment link details
         invoice.proforma_invoice = true;
+        invoice.payment_terms = payment_terms;
         invoice.proforma_number = proformaNumber;
         invoice.proforma_date = new Date().toISOString().split('T')[0];
         invoice.proforma_valid_until_date = proforma_valid_until_date.split('T')[0],

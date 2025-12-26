@@ -85,6 +85,11 @@ class Invoice extends Model {
                     allowNull: true,
                     defaultValue: null,
                 },
+                payment_terms: {
+                    type: DataTypes.JSON,
+                    allowNull: true,
+                    defaultValue: null,
+                },
                 signature: {
                     type: DataTypes.STRING(100),
                     allowNull: false,

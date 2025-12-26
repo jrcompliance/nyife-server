@@ -73,10 +73,12 @@ class Database {
         const Invoice = require('../models/invoice.model');
         const GstInfo = require('../models/gstInfo.model');
         const SubscriptionPlan = require('../models/subscription-plan.model');
+        const BankInfo = require('../models/bankInfo.model');
 
         this.models.Invoice = Invoice.initModel(this.sequelize);
         this.models.GstInfo = GstInfo.initModel(this.sequelize);
         this.models.SubscriptionPlan = SubscriptionPlan.initModel(this.sequelize);
+        this.models.BankInfo = BankInfo.initModel(this.sequelize);
 
         logger.info('Models initialized successfully');
     }

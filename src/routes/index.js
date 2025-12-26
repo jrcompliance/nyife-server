@@ -6,6 +6,7 @@ const uploadRoutes = require('./upload.routes');
 const emailRoutes = require('./email.routes');
 const subscriptionPlanRoutes = require('./subscription-plan.routes');
 const webhookRoutes = require('./webhook.routes');
+const bankInfoRoutes = require('./bank_info.routes');
 
 const router = express.Router();
 
@@ -33,6 +34,10 @@ const defaultRoutes = [
     {
         path: '/email',
         route: emailRoutes,
+    },
+    {
+        path: '/bank-info',
+        route: bankInfoRoutes,
     },
     {
         path: "/subscription-plans",
